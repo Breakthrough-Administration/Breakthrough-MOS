@@ -1,0 +1,44 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+bun.lock*
+
+# Testing
+/coverage
+
+# Next.js & build output
+/.next/
+.next/
+/.next-dev/
+.next-dev
+/dist/
+dist/
+/build/
+build/
+/out/
+out/
+
+# Misc
+.DS_Store
+*.pem
+
+# Local env & credentials
+.env*.local
+gen-lang-client-*.json
+*firebase-adminsdk*.json
+service-account.json
+*.key
+
+# AI Studio & Browser Automation Artifacts
+.aistudio/
+/.aistudio/
+.playwright-cli/
+/.playwright-cli/
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

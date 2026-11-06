@@ -1,0 +1,20 @@
+{
+  "name": "Breakthrough OS - NDIS Behaviour Support & Practice Management",
+  "short_name": "Breakthrough OS",
+  "description": "Australian NDIS Positive Behaviour Support & Practice Management Platform for Practitioners and Participants",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#020617",
+  "theme_color": "#0d9488",
+  "categories": ["medical", "health", "productivity", "business"],
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
