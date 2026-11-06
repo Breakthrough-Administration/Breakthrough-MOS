@@ -162,7 +162,8 @@ async function getCollectionDocs<T>(collectionName: string): Promise<T[]> {
     const snap = await getDocs(colRef);
     return snap.docs.map((d) => ({ ...d.data(), id: d.id } as T));
   } catch (err: any) {
-    if (isPermissionDeniedError(err)) {
+    const isTargetCollision = String(err?.message || '').includes('Target ID already exists');
+    if (isPermissionDeniedError(err) || isTargetCollision) {
       try {
         const bridgeRes = await callAdminFirestoreBridge({
           operation: 'getCollection',
@@ -172,9 +173,12 @@ async function getCollectionDocs<T>(collectionName: string): Promise<T[]> {
           return bridgeRes.items as T[];
         }
       } catch (bridgeErr) {
-        console.warn(`Admin bridge fallback failed for getCollection(${collectionName}):`, bridgeErr);
-        handleFirestoreError(err, OperationType.GET, collectionName);
+        if (!isTargetCollision) {
+          console.warn(`Admin bridge fallback failed for getCollection(${collectionName}):`, bridgeErr);
+          handleFirestoreError(err, OperationType.GET, collectionName);
+        }
       }
+      return [];
     }
     console.warn(`Firestore getCollectionDocs failed for ${collectionName}:`, err);
     return [];

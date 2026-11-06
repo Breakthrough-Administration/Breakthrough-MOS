@@ -813,12 +813,11 @@ export const GoogleWorkspaceAuthDiagnosticPanel: React.FC<
                       ok: true,
                       source: diagnostics.source
                     }))
-                ).map((sample, idx) => {
+                ).map((sample, index) => {
                   const heightPct = Math.min(100, Math.max(25, Math.round((sample.latencyMs / 250) * 100)));
-                  const uniqueSampleKey = `${sample.id}-${sample.timestamp || 'seed'}-${idx}`;
                   return (
                     <div
-                      key={uniqueSampleKey}
+                      key={`${sample.id}-${index}`}
                       title={`${sample.timestamp || 'Recent'}: ${sample.latencyMs}ms (${
                         sample.ok ? 'OK' : 'Failed'
                       })`}

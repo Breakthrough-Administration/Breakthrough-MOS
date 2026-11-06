@@ -29,6 +29,7 @@ import {
 import { GoogleDrivePreviewModal } from './GoogleDrivePreviewModal';
 import { ClinicalSignOffQueue } from './ClinicalSignOffQueue';
 import { CaseNoteRestrictivePracticeScannerAndAmanuensis } from './NDISRegulatorySafeguardingEngine';
+import { CaseNoteAndSection34DiagnosticSuite } from './CaseNoteAndSection34DiagnosticSuite';
 import { openGoogleDrivePicker, PickedGoogleDriveFile } from '@/lib/googlePicker';
 import { storePickedDriveFileMetadata } from '@/lib/firestoreService';
 
@@ -656,6 +657,9 @@ ${notesSummary || 'No session notes supplied for this participant'}
           </button>
         </div>
       </div>
+
+      {/* Case Note SOAP BIRP Neutrality Refiner & NDIS Section 34 Evidence Gap Checker */}
+      <CaseNoteAndSection34DiagnosticSuite />
 
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-3">

@@ -110,11 +110,14 @@ export default function nextConfig(phase) {
   /** @type {import('next').NextConfig} */
   const config = {
     distDir,
-    ...(isDevServer ? {} : { output: 'standalone' }),
+    ...(isDevServer
+      ? {
+          experimental: {
+            devtoolSegmentExplorer: false,
+          },
+        }
+      : { output: 'standalone' }),
     devIndicators: false,
-    experimental: {
-      devtoolSegmentExplorer: false,
-    },
     webpack: (webpackConfig, { dev }) => {
       if (dev) {
         webpackConfig.cache = {

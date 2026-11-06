@@ -39,9 +39,12 @@ import { GoogleWorkspaceAuthDiagnosticPanel } from './GoogleWorkspaceAuthDiagnos
 import { SeventeenHatsModal } from './SeventeenHatsModal';
 import {
   SeventeenHatsTrafficLightWidget,
-  formatAustralianSyncTimestamp
+  formatAustralianSyncTimestamp,
+  formatRelativeSyncAge,
+  getSyncStalenessMeta
 } from './SeventeenHatsTrafficLightWidget';
 import { NDISCommissionAuditEvidencePackBuilder } from './NextGenPracticeEnhancements';
+import { ClinicalIntelligenceStudio } from './ClinicalIntelligenceStudio';
 import { GoogleMeetService, GoogleMeetSpaceRecord } from '@/services/googleWorkspaceService';
 import {
   SeventeenHatsService,
@@ -144,11 +147,19 @@ export const CommandCenter: React.FC = () => {
   const [seventeenHatsLastSyncedAt, setSeventeenHatsLastSyncedAt] = useState<string>(() =>
     formatAustralianSyncTimestamp(new Date())
   );
+  const [seventeenHatsSyncAgeSeconds, setSeventeenHatsSyncAgeSeconds] = useState<number>(0);
   const [hatsActiveSubTab, setHatsActiveSubTab] = useState<'invoices' | 'contacts' | 'projects' | 'health'>('invoices');
   const [isSyncing17HatsHub, setIsSyncing17HatsHub] = useState(false);
   const [linked17HatsIds, setLinked17HatsIds] = useState<Record<string, boolean>>({});
   const [synced17HatsClientIds, setSynced17HatsClientIds] = useState<Record<string, boolean>>({});
   const [hubStatusBanner, setHubStatusBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSeventeenHatsSyncAgeSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const loadDashboardIntegrations = useCallback(async () => {
     try {
@@ -171,6 +182,7 @@ export const CommandCenter: React.FC = () => {
         setSeventeenHatsInvoices(hatsData.invoices || []);
         setSeventeenHatsProjects(hatsData.projects || []);
         setSeventeenHatsLastSyncedAt(formatAustralianSyncTimestamp(new Date()));
+        setSeventeenHatsSyncAgeSeconds(0);
         if (hatsData.connectionHealth) {
           setSeventeenHatsHealth(hatsData.connectionHealth);
         }
@@ -221,6 +233,7 @@ export const CommandCenter: React.FC = () => {
       const nowFormatted = formatAustralianSyncTimestamp(new Date());
       setSeventeenHatsHealth(health);
       setSeventeenHatsLastSyncedAt(nowFormatted);
+      setSeventeenHatsSyncAgeSeconds(0);
       setSeventeenHatsContacts(payload.contacts || []);
       setSeventeenHatsInvoices(payload.invoices || []);
       setSeventeenHatsProjects(payload.projects || []);
@@ -1069,12 +1082,26 @@ export const CommandCenter: React.FC = () => {
                         : 'HEALTHY · 5/5 ENDPOINTS'}
                     </span>
                     <span
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-800/90 text-amber-300 border border-amber-500/30 text-[10px] font-mono"
-                      title="Timestamp of most recent 17hats CRM & Invoicing data synchronization"
+                      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-800/90 text-amber-300 border border-amber-500/30 text-[10px] font-mono tabular-nums"
+                      title="Timestamp and relative age of most recent 17hats CRM & Invoicing data synchronization"
                     >
                       <Clock className="w-3 h-3 text-amber-400" />
-                      <span>Last Synced: {seventeenHatsLastSyncedAt}</span>
+                      <span>
+                        Last Synced: <strong className="text-white">{seventeenHatsLastSyncedAt}</strong> (
+                        {formatRelativeSyncAge(seventeenHatsSyncAgeSeconds)})
+                      </span>
                     </span>
+                    {(() => {
+                      const staleness = getSyncStalenessMeta(seventeenHatsSyncAgeSeconds);
+                      return (
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-mono font-bold ${staleness.badgeClass}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${staleness.dotClass}`} />
+                          {staleness.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="text-xs text-slate-400">
                     Centralizes 17hats client leads, NDIS service agreements, and invoices directly inside Breakthrough-OS &amp; Xero.
@@ -1107,9 +1134,11 @@ export const CommandCenter: React.FC = () => {
             <SeventeenHatsTrafficLightWidget
               compact
               pollIntervalSeconds={25}
+              externalSyncTimestamp={seventeenHatsLastSyncedAt}
               onHealthUpdated={(liveHealth, payload, syncedAtFormatted) => {
                 setSeventeenHatsHealth(liveHealth);
                 setSeventeenHatsLastSyncedAt(syncedAtFormatted);
+                setSeventeenHatsSyncAgeSeconds(0);
                 if (payload.contacts?.length) setSeventeenHatsContacts(payload.contacts);
                 if (payload.invoices?.length) setSeventeenHatsInvoices(payload.invoices);
                 if (payload.projects?.length) setSeventeenHatsProjects(payload.projects);
@@ -1344,6 +1373,9 @@ export const CommandCenter: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Clinical, Financial & Statutory Intelligence Studio (FBA Grapher, SOAP/BIRP/SIMPL Refiner, Sec 34 Auditor, Travel Simulator & Sec 14 NIL Tracker) */}
+      <ClinicalIntelligenceStudio />
 
       {/* NDIS Commission Audit Evidence Pack Builder (Encrypted, Timestamped .ZIP with Clinical Notes, Incidents, GAS Scores & Behavioral Heatmaps) */}
       <div className="space-y-3">

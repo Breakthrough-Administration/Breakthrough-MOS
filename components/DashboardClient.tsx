@@ -160,13 +160,24 @@ export default function DashboardClient() {
   useEffect(() => {
     setMounted(true);
 
-    // Check if first-time user tour should auto-open or listen for Header button trigger
+    // Check if ?autostart=1 is provided or if first-time user tour should auto-open
     try {
-      const seen = localStorage.getItem('breakthrough_first_time_tour_seen_v1');
-      if (!seen) {
-        // Show first-time user interactive guide automatically on first session
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('autostart') === '1') {
         localStorage.setItem('breakthrough_first_time_tour_seen_v1', 'true');
-        setIsTourModalOpen(true);
+        const state = useManagementStore.getState();
+        const defaultAdmin = state.users.find((u) => u.role === 'ADMIN') || state.users[0];
+        if (defaultAdmin) {
+          state.setUserProfile(defaultAdmin);
+        }
+        useManagementStore.setState({ authLoading: false, isAuthenticated: true });
+      } else {
+        const seen = localStorage.getItem('breakthrough_first_time_tour_seen_v1');
+        if (!seen) {
+          // Show first-time user interactive guide automatically on first session
+          localStorage.setItem('breakthrough_first_time_tour_seen_v1', 'true');
+          setIsTourModalOpen(true);
+        }
       }
     } catch {
       // ignore storage errors

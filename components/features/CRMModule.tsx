@@ -17,7 +17,9 @@ import {
 import { SeventeenHatsService, SeventeenHatsConnectionHealth } from '@/services/seventeenHatsService';
 import {
   SeventeenHatsTrafficLightWidget,
-  formatAustralianSyncTimestamp
+  formatAustralianSyncTimestamp,
+  formatRelativeSyncAge,
+  getSyncStalenessMeta
 } from './SeventeenHatsTrafficLightWidget';
 
 export const CRMModule: React.FC = () => {
@@ -27,8 +29,16 @@ export const CRMModule: React.FC = () => {
   const [lastSyncedAt, setLastSyncedAt] = useState<string>(() =>
     formatAustralianSyncTimestamp(new Date())
   );
+  const [syncAgeSeconds, setSyncAgeSeconds] = useState<number>(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [syncBanner, setSyncBanner] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSyncAgeSeconds((prev) => prev + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -37,6 +47,7 @@ export const CRMModule: React.FC = () => {
         if (active) {
           setHealthStatus(res.health);
           setLastSyncedAt(formatAustralianSyncTimestamp(new Date()));
+          setSyncAgeSeconds(0);
         }
       })
       .catch(() => {});
@@ -52,6 +63,7 @@ export const CRMModule: React.FC = () => {
       const nowFormatted = formatAustralianSyncTimestamp(new Date());
       setHealthStatus(health);
       setLastSyncedAt(nowFormatted);
+      setSyncAgeSeconds(0);
       let importedCount = 0;
       workspace.contacts.forEach((contact) => {
         const exists = leads.some(
@@ -164,6 +176,8 @@ export const CRMModule: React.FC = () => {
     setActiveTab('clients');
   };
 
+  const stalenessMeta = getSyncStalenessMeta(syncAgeSeconds);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -186,9 +200,17 @@ export const CRMModule: React.FC = () => {
                 ? `17HATS API HEALTHY · ${healthStatus.latencyMs}ms RTT (${healthStatus.endpoints.length}/5 OK)`
                 : 'CHECKING 17HATS API...'}
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono text-amber-300">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-slate-900 border border-slate-800 text-[10px] font-mono tabular-nums text-amber-300">
               <Clock className="w-3 h-3 text-amber-400" />
-              <span>Last Synced: {lastSyncedAt}</span>
+              <span>
+                Last Synced: <strong className="text-white">{lastSyncedAt}</strong> ({formatRelativeSyncAge(syncAgeSeconds)})
+              </span>
+            </span>
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-mono font-bold ${stalenessMeta.badgeClass}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${stalenessMeta.dotClass}`} />
+              {stalenessMeta.label}
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
@@ -200,14 +222,14 @@ export const CRMModule: React.FC = () => {
           <button
             onClick={handleVerifyAndPull17Hats}
             disabled={isVerifying}
-            className="px-3.5 py-2 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50"
+            className="px-3.5 py-2 rounded-2xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isVerifying ? 'animate-spin' : ''}`} />
             {isVerifying ? 'Verifying 17hats...' : 'Verify Health & Sync 17hats'}
           </button>
           <button
             onClick={() => setIsAddOpen(true)}
-            className="px-4 py-2 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors flex items-center gap-2"
+            className="px-4 py-2 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4" /> New Referral / Lead
           </button>
@@ -216,9 +238,11 @@ export const CRMModule: React.FC = () => {
 
       {/* Periodic Polling 17hats Traffic-Light Connection Monitor */}
       <SeventeenHatsTrafficLightWidget
+        externalSyncTimestamp={lastSyncedAt}
         onHealthUpdated={(liveHealth, _payload, syncedFormatted) => {
           setHealthStatus(liveHealth);
           setLastSyncedAt(syncedFormatted);
+          setSyncAgeSeconds(0);
         }}
       />
 

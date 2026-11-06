@@ -29,6 +29,7 @@ interface PollSample {
 interface SeventeenHatsTrafficLightWidgetProps {
   compact?: boolean;
   pollIntervalSeconds?: number;
+  externalSyncTimestamp?: string;
   onHealthUpdated?: (
     health: SeventeenHatsConnectionHealth,
     payload: SeventeenHatsWorkspacePayload,
@@ -49,9 +50,52 @@ export function formatAustralianSyncTimestamp(date: Date = new Date()): string {
   return `${day}-${month}-${year} • ${time}`;
 }
 
+export function formatRelativeSyncAge(seconds: number): string {
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const mins = Math.floor(seconds / 60);
+  const remSec = seconds % 60;
+  return remSec > 0 ? `${mins}m ${remSec}s ago` : `${mins}m ago`;
+}
+
+export function getSyncStalenessMeta(seconds: number): {
+  status: 'fresh' | 'aging' | 'stale';
+  label: string;
+  badgeClass: string;
+  dotClass: string;
+} {
+  if (seconds < 120) {
+    return {
+      status: 'fresh',
+      label: 'Fresh',
+      badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+      dotClass: 'bg-emerald-400 animate-pulse'
+    };
+  }
+  if (seconds < 300) {
+    return {
+      status: 'aging',
+      label: 'Aging',
+      badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+      dotClass: 'bg-amber-400'
+    };
+  }
+  return {
+    status: 'stale',
+    label: 'Stale · Refresh Due',
+    badgeClass: 'bg-rose-500/15 text-rose-300 border-rose-500/40',
+    dotClass: 'bg-rose-400 animate-ping'
+  };
+}
+
 export const SeventeenHatsTrafficLightWidget: React.FC<
   SeventeenHatsTrafficLightWidgetProps
-> = ({ compact = false, pollIntervalSeconds = 25, onHealthUpdated }) => {
+> = ({
+  compact = false,
+  pollIntervalSeconds = 25,
+  externalSyncTimestamp,
+  onHealthUpdated
+}) => {
   const { isOnline } = useManagementStore();
   const [trafficState, setTrafficState] = useState<TrafficLightState>('online');
   const [simulatedOverride, setSimulatedOverride] = useState<TrafficLightState | null>(null);
@@ -70,6 +114,15 @@ export const SeventeenHatsTrafficLightWidget: React.FC<
   useEffect(() => {
     onHealthUpdatedRef.current = onHealthUpdated;
   }, [onHealthUpdated]);
+
+  // Synchronise when parent manually refreshes connection data
+  useEffect(() => {
+    if (externalSyncTimestamp && externalSyncTimestamp !== lastSyncedAt) {
+      setLastSyncedAt(externalSyncTimestamp);
+      setSecondsSinceSync(0);
+      setNextPollIn(pollIntervalSeconds);
+    }
+  }, [externalSyncTimestamp, lastSyncedAt, pollIntervalSeconds]);
 
   const executeHealthPoll = useCallback(async () => {
     if (!isOnline) {
@@ -154,12 +207,8 @@ export const SeventeenHatsTrafficLightWidget: React.FC<
     ? 'offline'
     : simulatedOverride || trafficState;
 
-  const freshnessLabel =
-    secondsSinceSync < 10
-      ? 'Just now (Live)'
-      : secondsSinceSync < 60
-      ? `${secondsSinceSync}s ago`
-      : `${Math.floor(secondsSinceSync / 60)}m ${secondsSinceSync % 60}s ago`;
+  const relativeAgeLabel = formatRelativeSyncAge(secondsSinceSync);
+  const stalenessMeta = getSyncStalenessMeta(secondsSinceSync);
 
   const endpoints = health?.endpoints || [
     { resource: 'contacts', path: '/v1/contacts', ok: true, httpStatus: 200, recordsCount: 5, latencyMs: 18 },
@@ -251,20 +300,19 @@ export const SeventeenHatsTrafficLightWidget: React.FC<
               </span>
             </div>
 
-            {/* Last Synced Data Freshness Indicator */}
-            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5 font-mono">
+            {/* Last Synced Data Freshness Indicator (Exact Time + Relative Age + Staleness Badge) */}
+            <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-400 mt-1 font-mono tabular-nums">
               <span className="inline-flex items-center gap-1 text-slate-300">
                 <Clock className="w-3 h-3 text-amber-400" />
-                Last Synced: <strong className="text-white">{lastSyncedAt}</strong>
+                <span>
+                  Last Synced: <strong className="text-white">{lastSyncedAt}</strong> ({relativeAgeLabel})
+                </span>
               </span>
-              <span className="text-slate-600">•</span>
               <span
-                className={`inline-flex items-center gap-1 font-semibold ${
-                  secondsSinceSync < 60 ? 'text-emerald-400' : 'text-amber-300'
-                }`}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-semibold ${stalenessMeta.badgeClass}`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Freshness: {freshnessLabel}
+                <span className={`w-1.5 h-1.5 rounded-full ${stalenessMeta.dotClass}`} />
+                {stalenessMeta.label}
               </span>
             </div>
           </div>
