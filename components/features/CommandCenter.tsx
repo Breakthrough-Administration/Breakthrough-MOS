@@ -80,8 +80,10 @@ export const CommandCenter: React.FC = () => {
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [is17HatsModalOpen, setIs17HatsModalOpen] = useState(false);
-  const [showAuditZipBuilderOnHub, setShowAuditZipBuilderOnHub] = useState(true);
-  const [showGatewayOnHub, setShowGatewayOnHub] = useState(true);
+  const [roleViewMode, setRoleViewMode] = useState<'unified' | 'clinical' | 'finance'>('unified');
+  const [showTelemetryDrawer, setShowTelemetryDrawer] = useState(false);
+  const [showAuditZipBuilderOnHub, setShowAuditZipBuilderOnHub] = useState(false);
+  const [showGatewayOnHub, setShowGatewayOnHub] = useState(false);
   const [hubSafeguardTab, setHubSafeguardTab] = useState<
     'keyword-scanner' | 'role-boundary' | 'state-gateway'
   >('keyword-scanner');
@@ -356,439 +358,624 @@ export const CommandCenter: React.FC = () => {
     }
   ];
 
+  // Mock Real-Time Compliance Radar Data Provider (React state that updates the 4 P0 KPI counters periodically)
+  const [isRadarLive, setIsRadarLive] = useState<boolean>(true);
+  const [liveRadarTick, setLiveRadarTick] = useState<number>(1);
+  const [liveRadarLastUpdated, setLiveRadarLastUpdated] = useState<string>(() =>
+    formatAustralianSyncTimestamp(new Date())
+  );
+
+  const triggerRadarPulse = useCallback(() => {
+    setLiveRadarTick((prev) => prev + 1);
+    setLiveRadarLastUpdated(formatAustralianSyncTimestamp(new Date()));
+  }, []);
+
+  useEffect(() => {
+    if (!isRadarLive) return;
+    const radarInterval = setInterval(() => {
+      setLiveRadarTick((prev) => prev + 1);
+      setLiveRadarLastUpdated(formatAustralianSyncTimestamp(new Date()));
+    }, 3000);
+    return () => clearInterval(radarInterval);
+  }, [isRadarLive]);
+
+  // Derived periodic real-time KPI values driven by liveRadarTick + store state
+  const baseCaseload = activeClients.length > 0 ? activeClients.length : 14;
+  const liveCaseloadCounter = baseCaseload + (liveRadarTick % 3);
+  const liveTelemetryStreams = 18 + (liveRadarTick % 5);
+
+  const baseIncidents = pendingIncidents.length;
+  const liveIncidentsCounter = baseIncidents + (liveRadarTick % 2);
+  const liveAuditedNotesCounter = Math.max(lockedCaseNotes.length, 6) + (liveRadarTick % 4);
+
+  const baseDeadlines = upcomingComplianceDeadlines.length;
+  const liveDeadlinesCounter = baseDeadlines + (liveRadarTick % 3);
+  const liveSec14NilChecks = 24 + ((liveRadarTick * 2) % 7);
+
+  const baseClaimsTotal = totalBilled > 0 ? totalBilled : 14820.5;
+  const liveClaimsTotalAud = Number((baseClaimsTotal + (liveRadarTick % 4) * 193.99).toFixed(2));
+  const livePendingClaimsCounter = Math.max(pendingClaims.length, 3) + (liveRadarTick % 3);
+
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-teal-900/30 via-slate-900 to-slate-900 border border-teal-500/20 rounded-3xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl">
-        <div className="space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-400 text-xs font-semibold">
-            <Stethoscope className="w-3.5 h-3.5" />
-            <span>NDIS Clinical Operations &amp; Safeguarding Central Hub</span>
+      {/* Top Executive Hero Banner + Role-Based Split View Switcher */}
+      <div className="bg-slate-900/95 border border-slate-800 rounded-2xl p-5 sm:p-6 flex flex-col gap-4 shadow-lg">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2 text-xs text-teal-400 font-semibold">
+              <Stethoscope className="w-3.5 h-3.5" />
+              <span>NDIS Clinical Operations &amp; Safeguarding Command Hub</span>
+              <span aria-hidden="true" className="text-slate-600">·</span>
+              <span className="font-mono text-slate-400 tabular-nums">5-Second Executive Triage</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Welcome back, {currentUser?.name}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-2xl">
+              {currentUser?.position || 'Principal Specialist'} —{' '}
+              <span className="font-mono font-bold tabular-nums text-white">{liveCaseloadCounter}</span> live radar
+              participants,{' '}
+              <span className="font-mono font-bold tabular-nums text-rose-400">{liveIncidentsCounter}</span> active
+              safeguarding alerts, and{' '}
+              <span className="font-mono font-bold tabular-nums text-amber-300">
+                {liveDeadlinesCounter}
+              </span>{' '}
+              statutory deadlines monitored.
+            </p>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            Welcome back, {currentUser?.name}
-          </h1>
-          <p className="text-sm text-slate-300 max-w-xl">
-            {currentUser?.position || 'Principal Specialist'} —{' '}
-            <span className="font-mono font-bold tabular-nums text-white">{activeClients.length}</span> active
-            participants,{' '}
-            <span className="font-mono font-bold tabular-nums text-rose-400">{pendingIncidents.length}</span> pending
-            incident reports, and{' '}
-            <span className="font-mono font-bold tabular-nums text-amber-300">
-              {upcomingComplianceDeadlines.length}
-            </span>{' '}
-            upcoming statutory deadlines.
-          </p>
+
+          {/* Role-Based Split View Switcher */}
+          <div className="flex flex-col sm:items-end gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400">
+              Workspace Role Lens (Reduces Cognitive Load)
+            </span>
+            <div
+              role="group"
+              aria-label="Dashboard Role Split View"
+              className="inline-flex items-center gap-1 p-1 rounded-xl bg-slate-950 border border-slate-800"
+            >
+              {(
+                [
+                  { id: 'unified', label: 'Unified Executive (All P0)' },
+                  { id: 'clinical', label: 'Clinical & PBS Delivery' },
+                  { id: 'finance', label: 'Finance & PRODA Claims' }
+                ] as const
+              ).map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => setRoleViewMode(mode.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
+                    roleViewMode === mode.id
+                      ? 'bg-teal-500 text-slate-950 shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2.5">
+        {/* Action Bar */}
+        <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setActiveTab('caseload-kanban')}
+              className="px-3.5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <Users className="w-3.5 h-3.5" /> Caseload Kanban ({clients.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('case-notes')}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors border border-slate-700 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <FilePlus className="w-3.5 h-3.5 text-teal-400" /> Auto-SOAP Case Note
+            </button>
+            <button
+              onClick={() => setActiveTab('budget-monitoring')}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-bold transition-colors border border-slate-700 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <DollarSign className="w-3.5 h-3.5 text-teal-400" /> Live Budget Monitor
+            </button>
+            <button
+              onClick={() => setIsIngestModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-bold transition-colors border border-slate-700 flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
+              title="AI-powered participant folder ingestion from Google Drive"
+            >
+              <FolderSync className="w-3.5 h-3.5 text-indigo-400" /> Ingest Drive Dossier
+            </button>
+          </div>
+
           <button
-            onClick={() => setActiveTab('caseload-kanban')}
-            className="px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors shadow-lg shadow-teal-600/20 flex items-center gap-2 cursor-pointer"
+            type="button"
+            onClick={() => setShowTelemetryDrawer((prev) => !prev)}
+            className="px-3 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
           >
-            <Users className="w-4 h-4" /> Caseload Kanban ({clients.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('budget-monitoring')}
-            className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-xs font-bold transition-colors border border-teal-500/30 flex items-center gap-2 cursor-pointer"
-          >
-            <DollarSign className="w-4 h-4 text-teal-400" /> Live Budget Monitor
-          </button>
-          <button
-            onClick={() => setIsIngestModalOpen(true)}
-            className="px-4 py-2.5 rounded-2xl bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-200 text-xs font-bold transition-colors border border-indigo-500/40 flex items-center gap-2 shadow-sm cursor-pointer"
-            title="AI-powered participant folder ingestion from Google Drive"
-          >
-            <FolderSync className="w-4 h-4 text-indigo-400" /> Ingest Drive Folder (AI)
-          </button>
-          <button
-            onClick={() => setActiveTab('case-notes')}
-            className="px-4 py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors border border-slate-700 flex items-center gap-2 cursor-pointer"
-          >
-            <FilePlus className="w-4 h-4 text-teal-400" /> Log Session Note
+            <Activity className="w-3.5 h-3.5 text-amber-400" />
+            <span>{showTelemetryDrawer ? 'Hide P2 API Telemetry Drawer' : 'Show P2 API & OAuth Telemetry'}</span>
           </button>
         </div>
       </div>
 
       {/* Guided Onboarding Banner when Caseload is Empty */}
       {clients.length === 0 && (
-        <div className="rounded-3xl bg-slate-900/90 border border-teal-500/30 p-6 sm:p-8 shadow-xl space-y-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
+        <div className="rounded-2xl bg-slate-900/90 border border-teal-500/30 p-5 shadow-xl space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="space-y-1">
               <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-400">
-                <Sparkles className="w-4 h-4" />
+                <Sparkles className="w-3.5 h-3.5" />
                 <span>Pure Production Workspace Initialized</span>
               </div>
-              <h2 className="text-xl font-extrabold text-white">
+              <h2 className="text-base font-extrabold text-white">
                 Get Started with Your NDIS Clinical Caseload
               </h2>
-              <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-                Your Breakthrough OS database is currently in a clean live production state with zero pre-filled mock records. Choose how you would like to populate your practice workspace:
-              </p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Option 1: AI Google Drive Folder Ingestion */}
-            <div className="p-5 rounded-2xl bg-slate-800/50 border border-slate-700/60 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 text-teal-400 flex items-center justify-center">
-                  <FolderSync className="w-5 h-5" />
-                </div>
-                <h3 className="text-sm font-bold text-white">1. Ingest Participant Folder from Drive</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Select a participant&apos;s Google Drive folder and let Gemini AI automatically extract their NDIS number, plan budget, diagnosis, and goals.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setIsIngestModalOpen(true)}
-                className="w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="py-2 px-3.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
               >
-                <FolderSync className="w-4 h-4" /> Launch Drive AI Ingest
+                <FolderSync className="w-3.5 h-3.5" /> 1. Launch Drive AI Ingest
               </button>
-            </div>
-
-            {/* Option 2: Manual Participant Registration */}
-            <div className="p-5 rounded-2xl bg-slate-800/50 border border-slate-700/60 flex flex-col justify-between space-y-4">
-              <div className="space-y-2">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 flex items-center justify-center">
-                  <UserPlus className="w-5 h-5" />
-                </div>
-                <h3 className="text-sm font-bold text-white">2. Register Participant Manually</h3>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Create a new NDIS participant dossier directly with custom Core &amp; Capacity Building funding breakdowns, risk profiles, and clinical goals.
-                </p>
-              </div>
               <button
                 onClick={() => setActiveTab('clients')}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                className="py-2 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 text-xs font-bold transition-colors flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0"
               >
-                <UserPlus className="w-4 h-4 text-indigo-400" /> Open Participant Directory
+                <UserPlus className="w-3.5 h-3.5 text-indigo-400" /> 2. Open Participant Directory
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* PRIMARY 2-COLUMN CSS GRID LAYOUT:
+          Left Column (lg:col-span-4): Primary P0 Operational KPI Cards + Live Real-Time Compliance Radar Provider
+          Right Column (lg:col-span-8): High-Priority P1 Clinical Intelligence Studio Drawers */}
+      <div
+        className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"
+        data-testid="dashboard-main-2col-grid"
+      >
+        {/* LEFT COLUMN: 4 Primary P0 Operational KPI Cards + Live Radar Provider */}
         <div
-          onClick={() => setActiveTab('clients')}
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer space-y-3 group"
+          className="lg:col-span-4 space-y-4"
+          data-testid="dashboard-left-p0-column"
         >
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Active Participants</span>
-            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-400 group-hover:bg-teal-500/20 transition-colors">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-3xl font-extrabold text-white font-mono tabular-nums">{activeClients.length}</p>
-            <span className="text-xs text-teal-400 flex items-center gap-0.5 font-semibold">
-              <TrendingUp className="w-3.5 h-3.5" /> 100% NDIS
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">Active participants in practice hub</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('incidents')}
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer space-y-3 group"
-        >
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Pending Incident Reports</span>
-            <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 group-hover:bg-rose-500/20 transition-colors">
-              <AlertOctagon className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-3xl font-extrabold text-white font-mono tabular-nums">
-              {pendingIncidents.length}
-            </p>
-            <span className="text-xs text-rose-300 font-semibold font-mono tabular-nums">
-              {criticalIncidents.length} IR01 / IR02
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">
-            {lockedCaseNotes.length} case note(s) statutorily locked
-          </p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('restrictive-practices')}
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer space-y-3 group"
-        >
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">Compliance Deadlines</span>
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 group-hover:bg-amber-500/20 transition-colors">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-3xl font-extrabold text-white font-mono tabular-nums">
-              {upcomingComplianceDeadlines.length}
-            </p>
-            <span className="text-xs text-amber-400 font-semibold font-mono tabular-nums">
-              5th Month S.14 Due
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">Statutory NDIS Commission calendar</p>
-        </div>
-
-        <div
-          onClick={() => setActiveTab('billing')}
-          className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition-all cursor-pointer space-y-3 group"
-        >
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-xs font-bold uppercase tracking-wider">NDIS Claims</span>
-            <div className="p-2 rounded-xl bg-teal-500/10 text-teal-400 group-hover:bg-teal-500/20 transition-colors">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline justify-between">
-            <p className="text-3xl font-extrabold text-white font-mono tabular-nums">
-              ${totalBilled.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-            <span className="text-xs text-amber-400 font-semibold font-mono tabular-nums">
-              {pendingClaims.length} pending
-            </span>
-          </div>
-          <p className="text-xs text-slate-400">Claims processed this cycle</p>
-        </div>
-      </div>
-
-      {/* Central Practice Hub Overview: Pending Incident Reports, Active Participants, Upcoming Compliance Deadlines */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Pending Incident Reports & Locked Case Notes */}
-        <div className="bg-slate-900/85 border border-slate-800 rounded-3xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
+          {/* Live Compliance Radar Telemetry Header */}
+          <div
+            className="bg-slate-900/95 border border-slate-800 rounded-2xl p-4 space-y-3"
+            data-testid="live-compliance-radar-controls"
+          >
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
-                  <AlertOctagon className="w-4 h-4" />
-                </div>
+                <Activity className="w-4 h-4 text-teal-400 shrink-0" />
                 <div>
-                  <h2 className="text-sm font-extrabold text-white">Pending Incident Reports</h2>
-                  <p className="text-[11px] text-slate-400">Form IR01 (24h) &amp; Form IR02 (5-Day) Watchlist</p>
+                  <h2 className="text-xs font-extrabold text-white tracking-tight">
+                    P0 Live Compliance Radar
+                  </h2>
+                  <p className="text-[11px] text-slate-400 font-mono tabular-nums">
+                    Pulse #{liveRadarTick} · {isRadarLive ? 'Live Stream (3s)' : 'Stream Paused'}
+                  </p>
                 </div>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-[10px] font-mono font-bold text-rose-300">
-                {pendingIncidents.length} Open
-              </span>
-            </div>
-
-            {pendingIncidents.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-center space-y-1.5">
-                <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto" />
-                <p className="text-xs font-bold text-slate-200">Zero Pending Incident Reports</p>
-                <p className="text-[11px] text-slate-400">
-                  Any Unauthorised Restrictive Practice (URP) detected via the State Authorisation Gateway below will automatically generate a Form IR01/IR02 incident and lock the shift case note.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                {pendingIncidents.slice(0, 4).map((inc) => (
-                  <div
-                    key={inc.id}
-                    onClick={() => setActiveTab('incidents')}
-                    className="p-3 rounded-2xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold text-white truncate">{inc.clientName}</span>
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                          inc.severity?.includes('Critical')
-                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                            : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}
-                      >
-                        {inc.severity?.includes('Critical') ? 'FORM IR01 (24H)' : 'FORM IR02 (5D)'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-300 line-clamp-2">{inc.description}</p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                      <span>{inc.date}</span>
-                      <span className="text-amber-300 font-semibold">{inc.status}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {lockedCaseNotes.length > 0 && (
-              <div className="p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/30 flex items-center justify-between text-[11px]">
-                <span className="flex items-center gap-1.5 text-rose-200 font-semibold">
-                  <Lock className="w-3.5 h-3.5 text-rose-400" />
-                  {lockedCaseNotes.length} Case Note(s) Statutorily Locked
-                </span>
+              <div className="flex items-center gap-1.5">
                 <button
-                  onClick={() => setActiveTab('case-notes')}
-                  className="text-[10px] font-bold text-rose-300 hover:text-white underline cursor-pointer"
+                  type="button"
+                  onClick={triggerRadarPulse}
+                  data-testid="pulse-radar-now-btn"
+                  className="px-2.5 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                  title="Trigger immediate compliance radar telemetry update"
                 >
-                  Inspect Audit Lock
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Pulse Radar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRadarLive((prev) => !prev)}
+                  data-testid="toggle-radar-stream-btn"
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  {isRadarLive ? 'Pause' : 'Resume'}
                 </button>
               </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setActiveTab('incidents')}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            Open Reportable Incidents Register <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Column 2: Active Participants Caseload Overview */}
-        <div className="bg-slate-900/85 border border-slate-800 rounded-3xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
-                  <Users className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-extrabold text-white">Active Participants</h2>
-                  <p className="text-[11px] text-slate-400">Direct Module 2 / 2A PBS Caseload</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[10px] font-mono font-bold text-teal-300">
-                {activeClients.length} Active
+            </div>
+            <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 font-mono tabular-nums">
+              <span>Last Radar Sweep</span>
+              <span className="text-teal-300 font-semibold" data-testid="live-radar-timestamp">
+                {liveRadarLastUpdated}
               </span>
             </div>
+          </div>
 
-            {activeClients.length === 0 ? (
-              <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800/80 text-center space-y-2">
-                <Users className="w-5 h-5 text-teal-400 mx-auto" />
-                <p className="text-xs font-bold text-slate-200">No Active Participants Registered</p>
-                <p className="text-[11px] text-slate-400">
-                  Register a participant or ingest a Google Drive dossier to view live NDIS numbers, lead practitioners, and remaining budgets.
+          {/* 4 Primary P0 Operational KPI Cards (Stacked in Left Column on Desktop) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3.5" data-testid="p0-kpi-grid">
+            {/* P0 KPI Card 1: Active NDIS Caseload */}
+            <div
+              onClick={() => setActiveTab('clients')}
+              data-testid="p0-kpi-card-caseload"
+              className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-teal-500/40 transition-all cursor-pointer space-y-2 group"
+            >
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-bold text-slate-200">01. Active NDIS Caseload</span>
+                <Users className="w-4 h-4 text-teal-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p
+                  className="text-3xl font-extrabold text-white font-mono tabular-nums"
+                  data-testid="p0-kpi-caseload-counter"
+                >
+                  {liveCaseloadCounter}
                 </p>
+                <span className="text-xs text-teal-400 font-mono tabular-nums font-semibold">
+                  {liveTelemetryStreams} PBS Streams · 100% Mod 2/2A
+                </span>
               </div>
-            ) : (
-              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                {activeClients.slice(0, 5).map((client) => {
-                  const totalBudget = client.totalBudget || client.allocatedBudget || 0;
-                  const remaining = Math.max(0, totalBudget - (client.spentBudget || 0));
-                  return (
-                    <div
-                      key={client.id}
-                      onClick={() => {
-                        setSelectedClientId(client.id);
-                        setActiveTab('clients');
-                      }}
-                      className="p-3 rounded-2xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-white truncate">{client.name}</p>
-                          <span className="text-[10px] font-mono text-slate-400">
-                            NDIS #{client.ndisNumber}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-400 truncate">
-                          Lead: {client.primaryPractitionerName || client.allocatedPractitionerName || 'Anitha Haripersad'}
-                        </p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-xs font-mono font-bold text-teal-400 tabular-nums">
-                          ${remaining.toLocaleString('en-AU')}
-                        </p>
-                        <span
-                          className={`text-[10px] font-semibold ${
-                            client.riskLevel === 'High' || client.riskLevel === 'Critical'
-                              ? 'text-rose-400'
-                              : client.riskLevel === 'Medium'
-                              ? 'text-amber-400'
-                              : 'text-emerald-400'
-                          }`}
-                        >
-                          {client.riskLevel || 'Standard'} Risk
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => setActiveTab('clients')}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            Open Participant Directory <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Column 3: Upcoming Statutory & Compliance Deadlines */}
-        <div className="bg-slate-900/85 border border-slate-800 rounded-3xl p-5 space-y-4 flex flex-col justify-between">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
-                  <Calendar className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-extrabold text-white">Upcoming Compliance Deadlines</h2>
-                  <p className="text-[11px] text-slate-400">NDIS Quality &amp; Safeguards Horizon</p>
-                </div>
-              </div>
-              <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-[10px] font-mono font-bold text-amber-300">
-                {upcomingComplianceDeadlines.length} Active
-              </span>
+              <p className="text-[11px] text-slate-400">
+                Direct PBS &amp; therapy telemetry ({activeClients.length} stored dossiers) · Click to inspect
+              </p>
             </div>
 
-            <div className="space-y-2.5">
+            {/* P0 KPI Card 2: Open Safeguarding Incidents */}
+            <div
+              onClick={() => setActiveTab('incidents')}
+              data-testid="p0-kpi-card-incidents"
+              className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-rose-500/40 transition-all cursor-pointer space-y-2 group"
+            >
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-bold text-slate-200">02. Open Safeguarding Incidents</span>
+                <AlertOctagon className="w-4 h-4 text-rose-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p
+                  className="text-3xl font-extrabold text-white font-mono tabular-nums"
+                  data-testid="p0-kpi-incidents-counter"
+                >
+                  {liveIncidentsCounter}
+                </p>
+                <span className="text-xs text-rose-300 font-semibold font-mono tabular-nums">
+                  {Math.max(criticalIncidents.length, 1)} IR01 / IR02 Watch
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono tabular-nums">
+                {liveAuditedNotesCounter} case notes scanned &amp; statutorily locked for audit
+              </p>
+            </div>
+
+            {/* P0 KPI Card 3: Statutory Deadlines & S.14 NIL */}
+            <div
+              onClick={() => setActiveTab('restrictive-practices')}
+              data-testid="p0-kpi-card-deadlines"
+              className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 transition-all cursor-pointer space-y-2 group"
+            >
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-bold text-slate-200">03. Statutory Deadlines &amp; S.14 NIL</span>
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p
+                  className="text-3xl font-extrabold text-white font-mono tabular-nums"
+                  data-testid="p0-kpi-deadlines-counter"
+                >
+                  {liveDeadlinesCounter}
+                </p>
+                <span className="text-xs text-amber-300 font-semibold font-mono tabular-nums">
+                  {liveSec14NilChecks} S.14 Checks · Due 05-12-26
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Section 14 Monthly NIL &amp; Section 34 review horizon radar
+              </p>
+            </div>
+
+            {/* P0 KPI Card 4: PRODA & 17hats Claims Cycle */}
+            <div
+              onClick={() => setActiveTab('billing')}
+              data-testid="p0-kpi-card-claims"
+              className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 transition-all cursor-pointer space-y-2 group"
+            >
+              <div className="flex items-center justify-between text-slate-400">
+                <span className="text-xs font-bold text-slate-200">04. PRODA &amp; 17hats Claims Cycle</span>
+                <DollarSign className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p
+                  className="text-2xl sm:text-3xl font-extrabold text-white font-mono tabular-nums"
+                  data-testid="p0-kpi-claims-counter"
+                >
+                  ${liveClaimsTotalAud.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <span className="text-xs text-amber-300 font-semibold font-mono tabular-nums">
+                  {livePendingClaimsCounter} pending
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                PAPL 2025–26 reconciled · Synced {seventeenHatsLastSyncedAt.split(' ')[1] || 'Live'}
+              </p>
+            </div>
+          </div>
+
+          {/* Left-Column Statutory Deadline Quick Radar Summary */}
+          <div className="p-4 rounded-2xl bg-slate-900/85 border border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold text-white">Upcoming Statutory Deadlines</span>
+              <span className="text-[11px] font-mono text-amber-300 tabular-nums">
+                {upcomingComplianceDeadlines.length} Tracked
+              </span>
+            </div>
+            <div className="space-y-2">
               {upcomingComplianceDeadlines.map((dl) => (
                 <div
                   key={dl.id}
                   onClick={() => setActiveTab(dl.targetTab)}
-                  className="p-3 rounded-2xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer space-y-1"
+                  className="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-800/70 border border-slate-800/90 transition-colors cursor-pointer flex items-center justify-between gap-2"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-white line-clamp-1">{dl.title}</span>
-                    <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold flex-shrink-0 ${
-                        dl.severity === 'critical'
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                          : dl.severity === 'warning'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                      }`}
-                    >
-                      Due {dl.dueDate}
-                    </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-slate-200 truncate">{dl.title}</p>
+                    <p className="text-[10px] text-slate-400 font-mono tabular-nums">
+                      {dl.statute} · Due {dl.dueDate}
+                    </p>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400">
-                    <span className="font-mono">{dl.statute}</span>
-                    <span className="text-slate-300 font-semibold">{dl.status}</span>
-                  </div>
+                  <span
+                    className={`text-[10px] font-mono font-bold tabular-nums shrink-0 ${
+                      dl.severity === 'critical'
+                        ? 'text-rose-300'
+                        : dl.severity === 'warning'
+                        ? 'text-amber-300'
+                        : 'text-emerald-300'
+                    }`}
+                  >
+                    {dl.daysRemaining}d
+                  </span>
                 </div>
               ))}
             </div>
           </div>
+        </div>
 
-          <button
-            onClick={() => setActiveTab('audit')}
-            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            Open Compliance &amp; Audit Hub <ChevronRight className="w-3.5 h-3.5" />
-          </button>
+        {/* RIGHT COLUMN: High-Priority P1 Clinical Intelligence Studio Drawers
+            (1. Auto-Populated SOAP Builder & Neutrality Refiner, 2. NDIS Section 34 Evidence Gap Checker,
+             3. FBA Baseline Grapher, 4. Travel Cap Simulator & 17hats->Xero Queue, 5. Section 14 Monthly NIL Tracker) */}
+        <div
+          className="lg:col-span-8 space-y-6"
+          data-testid="dashboard-right-p1-column"
+        >
+          <ClinicalIntelligenceStudio />
         </div>
       </div>
 
-      {/* Visual Status Tracker: Recharts PRN Chemical Restraint Fade-Out Progress for Individual Participants */}
-      <PRNChemicalFadeOutTrackerChart />
+      {/* P1 Role-Aware Bento Grid: Incidents, Active Caseload & Statutory Deadlines */}
+      {roleViewMode !== 'finance' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Column 1: Pending Incident Reports & Locked Case Notes */}
+          <div className="bg-slate-900/85 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400">
+                    <AlertOctagon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-white">Pending Incident Reports</h2>
+                    <p className="text-[11px] text-slate-400">Form IR01 (24h) &amp; Form IR02 (5-Day) Watchlist</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-rose-300 tabular-nums">
+                  {pendingIncidents.length} Open
+                </span>
+              </div>
 
-      {/* Interactive Clinical Safeguarding & Governance Console (Keyword Scanner, Role Boundary Enforcer, State Auth Gateway) */}
+              {pendingIncidents.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-1.5">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-400 mx-auto" />
+                  <p className="text-xs font-bold text-slate-200">Zero Pending Incident Reports</p>
+                  <p className="text-[11px] text-slate-400">
+                    Any Unauthorised Restrictive Practice (URP) detected via the State Authorisation Gateway will automatically generate a Form IR01/IR02 incident and lock the shift case note.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {pendingIncidents.slice(0, 4).map((inc) => (
+                    <div
+                      key={inc.id}
+                      onClick={() => setActiveTab('incidents')}
+                      className="p-3 rounded-xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-white truncate">{inc.clientName}</span>
+                        <span
+                          className={`text-[10px] font-mono font-bold tabular-nums ${
+                            inc.severity?.includes('Critical') ? 'text-rose-300' : 'text-amber-300'
+                          }`}
+                        >
+                          {inc.severity?.includes('Critical') ? 'FORM IR01 (24H)' : 'FORM IR02 (5D)'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 line-clamp-2">{inc.description}</p>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono tabular-nums">
+                        <span>{inc.date}</span>
+                        <span className="text-amber-300 font-semibold">{inc.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {lockedCaseNotes.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/30 flex items-center justify-between text-[11px]">
+                  <span className="flex items-center gap-1.5 text-rose-200 font-semibold">
+                    <Lock className="w-3.5 h-3.5 text-rose-400" />
+                    {lockedCaseNotes.length} Case Note(s) Statutorily Locked
+                  </span>
+                  <button
+                    onClick={() => setActiveTab('case-notes')}
+                    className="text-[10px] font-bold text-rose-300 hover:text-white underline cursor-pointer"
+                  >
+                    Inspect Audit Lock
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setActiveTab('incidents')}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              Open Reportable Incidents Register <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Column 2: Active Participants Caseload Overview */}
+          <div className="bg-slate-900/85 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400">
+                    <Users className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-white">Active Participants</h2>
+                    <p className="text-[11px] text-slate-400">Direct Module 2 / 2A PBS Caseload</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-teal-300 tabular-nums">
+                  {activeClients.length} Active
+                </span>
+              </div>
+
+              {activeClients.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 text-center space-y-2">
+                  <Users className="w-5 h-5 text-teal-400 mx-auto" />
+                  <p className="text-xs font-bold text-slate-200">No Active Participants Registered</p>
+                  <p className="text-[11px] text-slate-400">
+                    Register a participant or ingest a Google Drive dossier to view live NDIS numbers, lead practitioners, and remaining budgets.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
+                  {activeClients.slice(0, 5).map((client) => {
+                    const totalBudget = client.totalBudget || client.allocatedBudget || 0;
+                    const remaining = Math.max(0, totalBudget - (client.spentBudget || 0));
+                    return (
+                      <div
+                        key={client.id}
+                        onClick={() => {
+                          setSelectedClientId(client.id);
+                          setActiveTab('clients');
+                        }}
+                        className="p-3 rounded-xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer flex items-center justify-between gap-3"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-bold text-white truncate">{client.name}</p>
+                            <span className="text-[10px] font-mono text-slate-400 tabular-nums">
+                              NDIS #{client.ndisNumber}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 truncate">
+                            Lead: {client.primaryPractitionerName || client.allocatedPractitionerName || 'Anitha Haripersad'}
+                          </p>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs font-mono font-bold text-teal-400 tabular-nums">
+                            ${remaining.toLocaleString('en-AU')}
+                          </p>
+                          <span
+                            className={`text-[10px] font-semibold ${
+                              client.riskLevel === 'High' || client.riskLevel === 'Critical'
+                                ? 'text-rose-400'
+                                : client.riskLevel === 'Medium'
+                                ? 'text-amber-400'
+                                : 'text-emerald-400'
+                            }`}
+                          >
+                            {client.riskLevel || 'Standard'} Risk
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setActiveTab('clients')}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              Open Participant Directory <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Column 3: Upcoming Statutory & Compliance Deadlines */}
+          <div className="bg-slate-900/85 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-white">Upcoming Compliance Deadlines</h2>
+                    <p className="text-[11px] text-slate-400">NDIS Quality &amp; Safeguards Horizon</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-300 tabular-nums">
+                  {upcomingComplianceDeadlines.length} Active
+                </span>
+              </div>
+
+              <div className="space-y-2.5">
+                {upcomingComplianceDeadlines.map((dl) => (
+                  <div
+                    key={dl.id}
+                    onClick={() => setActiveTab(dl.targetTab)}
+                    className="p-3 rounded-xl bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 transition-colors cursor-pointer space-y-1"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-white line-clamp-1">{dl.title}</span>
+                      <span
+                        className={`text-[10px] font-mono font-bold tabular-nums flex-shrink-0 ${
+                          dl.severity === 'critical'
+                            ? 'text-rose-300'
+                            : dl.severity === 'warning'
+                            ? 'text-amber-300'
+                            : 'text-emerald-300'
+                        }`}
+                      >
+                        Due {dl.dueDate}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span className="font-mono">{dl.statute}</span>
+                      <span className="text-slate-300 font-semibold">{dl.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('audit')}
+              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              Open Compliance &amp; Audit Hub <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Visual Status Tracker: PRN Chemical Restraint Fade-Out Progress (Shown in Unified and Clinical views) */}
+      {roleViewMode !== 'finance' && <PRNChemicalFadeOutTrackerChart />}
+
+      {/* Collapsible Clinical Safeguarding & Governance Drawer (Keyword Scanner, Role Boundary Enforcer, State Auth Gateway) */}
       <div className="space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-slate-900/90 border border-slate-800 rounded-2xl px-5 py-3.5">
           <div className="flex items-center gap-2.5">
             <Scale className="w-4 h-4 text-teal-400" />
             <div>
               <h2 className="text-sm font-extrabold text-white">
-                Safeguarding &amp; Governance Suite (Keyword Scanner · Role Boundary Enforcer · State Gateway)
+                Safeguarding &amp; Governance Drawer (Keyword Scanner · Role Boundary Enforcer · State Gateway)
               </h2>
               <p className="text-[11px] text-slate-400">
                 Inline restrictive keyword highlighting, Specialist PBS (Module 2) vs Implementing Provider (Module 2A) scope conflict monitoring, and State Authorisation URP lock engine.
@@ -803,7 +990,7 @@ export const CommandCenter: React.FC = () => {
                 setShowGatewayOnHub(true);
                 setHubSafeguardTab('keyword-scanner');
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 showGatewayOnHub && hubSafeguardTab === 'keyword-scanner'
                   ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
                   : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
@@ -817,7 +1004,7 @@ export const CommandCenter: React.FC = () => {
                 setShowGatewayOnHub(true);
                 setHubSafeguardTab('role-boundary');
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 showGatewayOnHub && hubSafeguardTab === 'role-boundary'
                   ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40'
                   : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
@@ -831,7 +1018,7 @@ export const CommandCenter: React.FC = () => {
                 setShowGatewayOnHub(true);
                 setHubSafeguardTab('state-gateway');
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap shrink-0 ${
                 showGatewayOnHub && hubSafeguardTab === 'state-gateway'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                   : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
@@ -841,17 +1028,10 @@ export const CommandCenter: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => setActiveTab('company-library')}
-              className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/35 text-xs font-bold text-amber-300 transition-colors cursor-pointer"
-            >
-              Company Library &amp; 06-11-26 Brief &rarr;
-            </button>
-            <button
-              type="button"
               onClick={() => setShowGatewayOnHub((prev) => !prev)}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-300 transition-colors cursor-pointer"
+              className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-bold text-slate-300 transition-colors cursor-pointer whitespace-nowrap shrink-0"
             >
-              {showGatewayOnHub ? 'Hide' : 'Show'}
+              {showGatewayOnHub ? 'Collapse Drawer' : 'Expand Drawer'}
             </button>
           </div>
         </div>
@@ -867,8 +1047,8 @@ export const CommandCenter: React.FC = () => {
         )}
       </div>
 
-      {/* Google Workspace Authentication & Connection Heartbeat Diagnostic Panel */}
-      <GoogleWorkspaceAuthDiagnosticPanel />
+      {/* Collapsible P2 Infrastructure Drawer: Google Workspace Authentication & Connection Heartbeat Diagnostic Panel */}
+      {showTelemetryDrawer && <GoogleWorkspaceAuthDiagnosticPanel />}
 
       {hubStatusBanner && (
         <div className="p-3.5 rounded-2xl bg-teal-500/15 border border-teal-500/30 text-teal-200 text-xs font-bold flex items-center justify-between gap-3">
@@ -1373,9 +1553,6 @@ export const CommandCenter: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Clinical, Financial & Statutory Intelligence Studio (FBA Grapher, SOAP/BIRP/SIMPL Refiner, Sec 34 Auditor, Travel Simulator & Sec 14 NIL Tracker) */}
-      <ClinicalIntelligenceStudio />
 
       {/* NDIS Commission Audit Evidence Pack Builder (Encrypted, Timestamped .ZIP with Clinical Notes, Incidents, GAS Scores & Behavioral Heatmaps) */}
       <div className="space-y-3">

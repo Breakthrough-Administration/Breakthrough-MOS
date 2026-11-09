@@ -227,14 +227,72 @@ export const CaseNotesModule: React.FC = () => {
     return matchesSearch && matchesClient && matchesFormat;
   });
 
+  const buildAutoSoapFieldsForParticipant = React.useCallback(
+    (clientId?: string) => {
+      const target = clients.find((c) => c.id === clientId) || clients[0];
+      const priorNotes = caseNotes.filter((n) => n.clientId === target?.id);
+      const latestPrior = priorNotes[0];
+      const firstGoal =
+        target?.goals?.[0]?.title ||
+        'Increase functional communication & self-regulation independence across home and school routines';
+      const totalBudget = target?.allocatedBudget || target?.totalBudget || 32400;
+      const spent = target?.spentBudget || 11250;
+      const remaining = Math.max(0, totalBudget - spent);
+
+      return {
+        subjective:
+          latestPrior?.subjective ||
+          `Participant (${target?.name || 'Participant'}, NDIS #${target?.ndisNumber || '431088410'}) and support network reported ${
+            target?.riskLevel === 'High' || target?.riskLevel === 'Critical'
+              ? 'heightened transition fatigue prior to session; requested visual schedule preview'
+              : 'settled baseline regulation and readiness for scheduled capacity-building tasks'
+          }. Primary Disability context: ${target?.primaryDisability || 'Autism Spectrum Disorder (Level 2)'}.`,
+        objective:
+          latestPrior?.objective ||
+          `Delivered 60m direct PBS & capacity-building intervention aligned with NDIS Goal "${firstGoal}". Prompted functional communication (Red/Green Break Card) across 3 structured transitions; 0 unauthorised restrictive practices observed.`,
+        assessment:
+          latestPrior?.assessment ||
+          `Evidence demonstrates measurable functional progress toward NDIS Plan Goal ("${firstGoal}"). Remaining Plan Budget: $${remaining.toLocaleString(
+            'en-AU'
+          )} AUD (Plan End: ${target?.planEndDate || '30-11-2026'}). Meets Section 34 Reasonable & Necessary value-for-money criteria.`,
+        plan:
+          latestPrior?.plan ||
+          `1. Continue ABC frequency & duration baseline logging across next 14-day window.\n2. Share updated visual transition prompt steps with family and Module 2A implementing support workers.\n3. Review progress prior to Section 34 plan reassessment.`
+      };
+    },
+    [clients, caseNotes]
+  );
+
+  React.useEffect(() => {
+    const handleOpenSoapEvent = () => {
+      const defaultClient = clients.find((c) => c.id === selectedClientId) || clients[0];
+      const autoFields = buildAutoSoapFieldsForParticipant(defaultClient?.id);
+      setFormData((prev) => ({
+        ...prev,
+        clientId: defaultClient?.id || 'cli-001',
+        clientName: defaultClient?.name || 'Participant',
+        format: 'SOAP',
+        date: new Date().toISOString().split('T')[0],
+        linkedGoalIds: defaultClient?.goals?.[0]?.id ? [defaultClient.goals[0].id] : [],
+        ...autoFields
+      }));
+      setIsAddOpen(true);
+    };
+    window.addEventListener('breakthrough-open-soap-builder', handleOpenSoapEvent);
+    return () => window.removeEventListener('breakthrough-open-soap-builder', handleOpenSoapEvent);
+  }, [clients, selectedClientId, buildAutoSoapFieldsForParticipant]);
+
   const handleOpenNewModal = () => {
     const defaultClient = clients.find((c) => c.id === selectedClientId) || clients[0];
+    const autoFields = buildAutoSoapFieldsForParticipant(defaultClient?.id);
     setFormData((prev) => ({
       ...prev,
       clientId: defaultClient?.id || 'cli-001',
       clientName: defaultClient?.name || 'Participant',
+      format: 'SOAP',
       date: new Date().toISOString().split('T')[0],
-      linkedGoalIds: defaultClient?.goals?.[0]?.id ? [defaultClient.goals[0].id] : []
+      linkedGoalIds: defaultClient?.goals?.[0]?.id ? [defaultClient.goals[0].id] : [],
+      ...autoFields
     }));
     setIncidentFlag(false);
     setIncidentSummary('');
@@ -988,11 +1046,13 @@ ${notesSummary || 'No session notes supplied for this participant'}
                     value={formData.clientId}
                     onChange={(e) => {
                       const found = clients.find((c) => c.id === e.target.value);
+                      const autoFields = buildAutoSoapFieldsForParticipant(e.target.value);
                       setFormData({
                         ...formData,
                         clientId: e.target.value,
                         clientName: found?.name || formData.clientName,
-                        linkedGoalIds: found?.goals?.[0]?.id ? [found.goals[0].id] : []
+                        linkedGoalIds: found?.goals?.[0]?.id ? [found.goals[0].id] : [],
+                        ...autoFields
                       });
                     }}
                     className="w-full p-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white cursor-pointer"
@@ -1032,6 +1092,38 @@ ${notesSummary || 'No session notes supplied for this participant'}
                     <option value="15_056_0128_1_3">15_056_0128_1_3 ($193.99/h Therapy)</option>
                     <option value="15_054_0128_1_3">15_054_0128_1_3 ($232.74/h PBS Specialist)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* Auto-Populated NDIS Participant History Context Strip */}
+              <div className="p-3 rounded-xl bg-teal-950/25 border border-teal-500/30 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-[11px]">
+                    <span className="font-bold text-teal-300">
+                      Auto-Populated NDIS Participant History ({selectedFormClient?.name || 'Participant'})
+                    </span>
+                    <span className="text-slate-500" aria-hidden="true">·</span>
+                    <span className="font-mono text-slate-300 tabular-nums">
+                      NDIS #{selectedFormClient?.ndisNumber || '431088410'}
+                    </span>
+                    <span className="text-slate-500" aria-hidden="true">·</span>
+                    <span className="text-slate-400">
+                      {selectedFormClient?.primaryDisability || 'Autism Spectrum Disorder (Level 2)'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const autoFields = buildAutoSoapFieldsForParticipant(formData.clientId);
+                      setFormData((prev) => ({
+                        ...prev,
+                        ...autoFields
+                      }));
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-teal-500/20 hover:bg-teal-500/30 border border-teal-500/40 text-teal-200 text-[10px] font-bold cursor-pointer whitespace-nowrap shrink-0"
+                  >
+                    Re-Populate SOAP from History
+                  </button>
                 </div>
               </div>
 

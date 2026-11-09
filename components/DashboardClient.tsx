@@ -342,64 +342,62 @@ export default function DashboardClient() {
         <Sidebar activeTab={activeTab} setActiveTab={(tab: TabType) => setActiveTab(tab)} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 md:p-6 lg:p-8 bg-slate-950/40 w-full min-w-0">
           <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
-            {/* Central Practice Hub Quick Status Strip */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-slate-800/90 text-xs">
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('command-center')}
-                  className={`px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer ${
-                    activeTab === 'command-center'
-                      ? 'bg-teal-500/20 text-teal-300 border border-teal-500/40'
-                      : 'bg-slate-800 text-slate-300 hover:text-white'
-                  }`}
-                >
-                  Practice Hub &amp; PRN Fade-Out Tracker
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('clients')}
-                  className="text-slate-300 hover:text-teal-300 font-mono transition-colors cursor-pointer"
-                >
-                  Active Participants: <strong className="text-white">{activeParticipantsCount}</strong>
-                </button>
-                <span className="text-slate-700">|</span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('incidents')}
-                  className="text-slate-300 hover:text-rose-300 font-mono transition-colors cursor-pointer"
-                >
-                  Pending Incident Reports (IR01/IR02):{' '}
-                  <strong className={pendingIncidentCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>
-                    {pendingIncidentCount}
-                  </strong>
-                </button>
-                <span className="text-slate-700">|</span>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('case-notes')}
-                  className="text-slate-300 hover:text-amber-300 font-mono transition-colors cursor-pointer"
-                >
-                  Locked Case Notes: <strong className="text-amber-300">{lockedNotesCount}</strong>
-                </button>
-                <span className="text-slate-700">|</span>
+            {/* Secondary Module Quick Return Strip (Shown on Sub-Modules; Command Center has 4 P0 KPI Cards) */}
+            {activeTab !== 'command-center' && (
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-slate-800/90 text-xs">
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('command-center')}
+                    className="px-2.5 py-1 rounded-lg font-bold transition-colors cursor-pointer bg-slate-800 text-slate-300 hover:text-white"
+                  >
+                    &larr; Command Center (5s Hub)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('clients')}
+                    className="text-slate-300 hover:text-teal-300 font-mono transition-colors cursor-pointer"
+                  >
+                    Active Participants: <strong className="text-white">{activeParticipantsCount}</strong>
+                  </button>
+                  <span className="text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('incidents')}
+                    className="text-slate-300 hover:text-rose-300 font-mono transition-colors cursor-pointer"
+                  >
+                    Pending Incident Reports (IR01/IR02):{' '}
+                    <strong className={pendingIncidentCount > 0 ? 'text-rose-400' : 'text-emerald-400'}>
+                      {pendingIncidentCount}
+                    </strong>
+                  </button>
+                  <span className="text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('case-notes')}
+                    className="text-slate-300 hover:text-amber-300 font-mono transition-colors cursor-pointer"
+                  >
+                    Locked Case Notes: <strong className="text-amber-300">{lockedNotesCount}</strong>
+                  </button>
+                  <span className="text-slate-700">|</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('restrictive-practices')}
+                    className="text-slate-300 hover:text-teal-300 font-mono transition-colors cursor-pointer"
+                  >
+                    Upcoming Deadlines (S.14 5th Month):{' '}
+                    <strong className="text-teal-300">{upcomingDeadlinesCount}</strong>
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => setActiveTab('restrictive-practices')}
-                  className="text-slate-300 hover:text-teal-300 font-mono transition-colors cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-semibold text-[11px] transition-colors cursor-pointer"
                 >
-                  Upcoming Deadlines (S.14 5th Month):{' '}
-                  <strong className="text-teal-300">{upcomingDeadlinesCount}</strong>
+                  State Authorisation Gateway &amp; URP Lock
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveTab('restrictive-practices')}
-                className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-semibold text-[11px] transition-colors cursor-pointer"
-              >
-                State Authorisation Gateway &amp; URP Lock
-              </button>
-            </div>
+            )}
 
             <ContextualModuleGuideBanner
               activeTab={activeTab}

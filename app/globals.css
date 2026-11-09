@@ -30,12 +30,22 @@ html.light #breakthrough-app-root {
 
 html.light #breakthrough-app-root .bg-slate-950,
 html.light #breakthrough-app-root .bg-slate-950\/40,
-html.light #breakthrough-app-root .bg-slate-950\/60 {
+html.light #breakthrough-app-root .bg-slate-950\/50,
+html.light #breakthrough-app-root .bg-slate-950\/60,
+html.light #breakthrough-app-root .bg-slate-950\/70,
+html.light #breakthrough-app-root .bg-slate-950\/80,
+html.light #breakthrough-app-root .bg-slate-950\/90,
+html.light #breakthrough-app-root .bg-slate-950\/95 {
   background-color: #f8fafc;
 }
 
 html.light #breakthrough-app-root .bg-slate-900,
+html.light #breakthrough-app-root .bg-slate-900\/40,
+html.light #breakthrough-app-root .bg-slate-900\/50,
+html.light #breakthrough-app-root .bg-slate-900\/60,
+html.light #breakthrough-app-root .bg-slate-900\/70,
 html.light #breakthrough-app-root .bg-slate-900\/80,
+html.light #breakthrough-app-root .bg-slate-900\/85,
 html.light #breakthrough-app-root .bg-slate-900\/90,
 html.light #breakthrough-app-root .bg-slate-900\/95 {
   background-color: #ffffff;
@@ -45,14 +55,49 @@ html.light #breakthrough-app-root .bg-slate-800,
 html.light #breakthrough-app-root .bg-slate-800\/40,
 html.light #breakthrough-app-root .bg-slate-800\/50,
 html.light #breakthrough-app-root .bg-slate-800\/60,
-html.light #breakthrough-app-root .bg-slate-800\/80 {
+html.light #breakthrough-app-root .bg-slate-800\/70,
+html.light #breakthrough-app-root .bg-slate-800\/80,
+html.light #breakthrough-app-root .bg-slate-800\/90 {
   background-color: #f1f5f9;
+}
+
+html.light #breakthrough-app-root .bg-teal-950\/20,
+html.light #breakthrough-app-root .bg-teal-950\/25,
+html.light #breakthrough-app-root .bg-teal-950\/30,
+html.light #breakthrough-app-root .bg-emerald-950\/20,
+html.light #breakthrough-app-root .bg-emerald-950\/25,
+html.light #breakthrough-app-root .bg-emerald-950\/30 {
+  background-color: #f0fdfa;
+}
+
+html.light #breakthrough-app-root .bg-amber-950\/20,
+html.light #breakthrough-app-root .bg-amber-950\/25,
+html.light #breakthrough-app-root .bg-amber-950\/30 {
+  background-color: #fffbeb;
+}
+
+html.light #breakthrough-app-root .bg-indigo-950\/20,
+html.light #breakthrough-app-root .bg-indigo-950\/25,
+html.light #breakthrough-app-root .bg-indigo-950\/30,
+html.light #breakthrough-app-root .bg-indigo-950\/60 {
+  background-color: #eef2ff;
+}
+
+html.light #breakthrough-app-root .bg-rose-950\/20,
+html.light #breakthrough-app-root .bg-rose-950\/25,
+html.light #breakthrough-app-root .bg-rose-950\/30,
+html.light #breakthrough-app-root .bg-rose-950\/40 {
+  background-color: #fff1f2;
 }
 
 html.light #breakthrough-app-root .border-slate-800,
 html.light #breakthrough-app-root .border-slate-800\/50,
+html.light #breakthrough-app-root .border-slate-800\/60,
+html.light #breakthrough-app-root .border-slate-800\/70,
 html.light #breakthrough-app-root .border-slate-800\/80,
+html.light #breakthrough-app-root .border-slate-800\/90,
 html.light #breakthrough-app-root .border-slate-700,
+html.light #breakthrough-app-root .border-slate-700\/30,
 html.light #breakthrough-app-root .border-slate-700\/40,
 html.light #breakthrough-app-root .border-slate-700\/60 {
   border-color: #e2e8f0;
@@ -64,12 +109,17 @@ html.light #breakthrough-app-root h3.text-white,
 html.light #breakthrough-app-root h4.text-white,
 html.light #breakthrough-app-root p.text-white,
 html.light #breakthrough-app-root span.text-white,
+html.light #breakthrough-app-root strong.text-white,
+html.light #breakthrough-app-root div.text-white,
 html.light #breakthrough-app-root input.text-white,
 html.light #breakthrough-app-root select.text-white,
-html.light #breakthrough-app-root textarea.text-white {
+html.light #breakthrough-app-root textarea.text-white,
+html.light #breakthrough-app-root button.bg-slate-800.text-white,
+html.light #breakthrough-app-root button.bg-slate-900.text-white {
   color: #0f172a;
 }
 
+html.light #breakthrough-app-root .text-slate-100,
 html.light #breakthrough-app-root .text-slate-200,
 html.light #breakthrough-app-root .text-slate-300 {
   color: #334155;
@@ -77,5 +127,35 @@ html.light #breakthrough-app-root .text-slate-300 {
 
 html.light #breakthrough-app-root .text-slate-400,
 html.light #breakthrough-app-root .text-slate-500 {
-  color: #64748b;
+  color: #475569;
+}
+
+html.light #breakthrough-app-root .text-teal-200,
+html.light #breakthrough-app-root .text-teal-300,
+html.light #breakthrough-app-root .text-teal-400 {
+  color: #0f766e;
+}
+
+html.light #breakthrough-app-root .text-emerald-200,
+html.light #breakthrough-app-root .text-emerald-300,
+html.light #breakthrough-app-root .text-emerald-400 {
+  color: #047857;
+}
+
+html.light #breakthrough-app-root .text-amber-200,
+html.light #breakthrough-app-root .text-amber-300,
+html.light #breakthrough-app-root .text-amber-400 {
+  color: #b45309;
+}
+
+html.light #breakthrough-app-root .text-indigo-200,
+html.light #breakthrough-app-root .text-indigo-300,
+html.light #breakthrough-app-root .text-indigo-400 {
+  color: #4338ca;
+}
+
+html.light #breakthrough-app-root .text-rose-200,
+html.light #breakthrough-app-root .text-rose-300,
+html.light #breakthrough-app-root .text-rose-400 {
+  color: #be123c;
 }

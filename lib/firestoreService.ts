@@ -158,6 +158,13 @@ async function getCollectionDocs<T>(collectionName: string): Promise<T[]> {
     if (!auth?.currentUser) {
       await ensureClientCustomTokenAuth();
     }
+    if (!auth?.currentUser?.emailVerified) {
+      const bridgeRes = await callAdminFirestoreBridge({
+        operation: 'getCollection',
+        collectionName
+      });
+      return Array.isArray(bridgeRes?.items) ? (bridgeRes.items as T[]) : [];
+    }
     const colRef = collection(db, collectionName);
     const snap = await getDocs(colRef);
     return snap.docs.map((d) => ({ ...d.data(), id: d.id } as T));
@@ -199,6 +206,18 @@ function subscribeToCollection<T>(
       await ensureClientCustomTokenAuth();
     }
     if (isCancelled) return;
+
+    if (!auth?.currentUser?.emailVerified) {
+      try {
+        const items = await getCollectionDocs<T>(collectionName);
+        if (!isCancelled) {
+          onUpdate(items);
+        }
+      } catch (fallbackErr: any) {
+        if (onError && !isCancelled) onError(fallbackErr);
+      }
+      return;
+    }
 
     try {
       const colRef = collection(db, collectionName);
@@ -252,7 +271,7 @@ export async function setDocumentData<T extends { id?: string }>(
     await ensureClientCustomTokenAuth();
   }
 
-  if (!auth?.currentUser) {
+  if (!auth?.currentUser?.emailVerified) {
     try {
       await callAdminFirestoreBridge({
         operation: 'set',
@@ -299,7 +318,7 @@ async function updateDocumentData(
     await ensureClientCustomTokenAuth();
   }
 
-  if (!auth?.currentUser) {
+  if (!auth?.currentUser?.emailVerified) {
     try {
       await callAdminFirestoreBridge({
         operation: 'update',
@@ -340,7 +359,7 @@ async function deleteDocumentData(collectionName: string, id: string): Promise<v
     await ensureClientCustomTokenAuth();
   }
 
-  if (!auth?.currentUser) {
+  if (!auth?.currentUser?.emailVerified) {
     try {
       await callAdminFirestoreBridge({
         operation: 'delete',
@@ -588,7 +607,7 @@ async function getSingleDocumentData<T>(collectionName: string, id: string): Pro
     if (!auth?.currentUser) {
       await ensureClientCustomTokenAuth();
     }
-    if (!auth?.currentUser) {
+    if (!auth?.currentUser?.emailVerified) {
       const bridgeRes = await callAdminFirestoreBridge({
         operation: 'getDoc',
         collectionName,

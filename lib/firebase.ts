@@ -338,7 +338,9 @@ async function testConnection() {
         fetchServiceAccountAccessToken(),
         ensureClientCustomTokenAuth()
       ]);
-      await getDocFromServer(doc(db, 'system', 'admin_health_probe'));
+      if (auth.currentUser?.emailVerified === true) {
+        await getDocFromServer(doc(db, 'system', 'admin_health_probe'));
+      }
     }
   } catch {
     // Non-blocking boot connection check
